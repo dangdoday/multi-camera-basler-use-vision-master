@@ -1,0 +1,5 @@
+C:\Program Files\VisionMaster4.4.0\Applications\myLibs\VM.Core.dll
+C:\Program Files\VisionMaster4.4.0\Applications\PublicFile\x64\VM.PlatformSDKCS.dll
+C:\Program Files\VisionMaster4.4.0\Applications\myLibs\VMControls.BaseInterface.dll
+C:\Program Files\VisionMaster4.4.0\Applications\myLibs\VMControls.Interface.dll
+C:\Program Files\VisionMaster4.4.0\Applications\myLibs\VMControls.Winform.Release.dll
