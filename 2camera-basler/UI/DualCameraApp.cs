@@ -11,6 +11,10 @@ using VMControls.Interface;
 using VMControls.Winform.Release;
 using VM.PlatformSDKCS;
 using ImageSourceModuleCs;
+using System.Net.Sockets;
+using System.Text;
+using System.Reflection;
+using System.Linq;
 
 namespace MultiCameraBaslerApp.UI
 {
@@ -53,6 +57,11 @@ namespace MultiCameraBaslerApp.UI
         private Button btnGoToSettings, btnHomeTrigger, btnBackToHome;
         private VmRenderControl vmRenderControl;
         private bool suppressSelectionEvents;
+        
+        // TCP Settings
+        private TextBox txtTcpIp;
+        private NumericUpDown nudTcpPort;
+        private Button btnTestTcp;
 
         // Zoom and Pan variables for Camera 1
         private float zoom1 = 1.0f;
@@ -222,7 +231,8 @@ namespace MultiCameraBaslerApp.UI
                 Padding = new Padding(4)
             };
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 380F));
-            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 320F));
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 280F));
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 140F)); // For TCP Group
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50F)); // For Back button
 
@@ -365,7 +375,6 @@ namespace MultiCameraBaslerApp.UI
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            visionLayout.Controls.Add(new Label { Text = "VM Display moved to Home", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, BorderStyle = BorderStyle.FixedSingle }, 0, 0);
             visionLayout.Controls.Add(txtVisionMasterPath, 0, 1);
             visionLayout.Controls.Add(btnBrowseVisionMaster, 1, 1);
             visionLayout.Controls.Add(btnLoadVisionMaster, 0, 2);
@@ -376,6 +385,30 @@ namespace MultiCameraBaslerApp.UI
             visionLayout.SetColumnSpan(lblVisionMasterStatus, 2);
             visionMasterGroup.Controls.Add(visionLayout);
 
+            GroupBox tcpGroup = new GroupBox { Text = "3. CẤU HÌNH TCP", Dock = DockStyle.Fill };
+            TableLayoutPanel tcpLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3, Padding = new Padding(8) };
+            tcpLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
+            tcpLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
+            tcpLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+
+            txtTcpIp = new TextBox { Text = "127.0.0.1", Dock = DockStyle.Fill };
+            nudTcpPort = new NumericUpDown { Minimum = 1, Maximum = 65535, Value = 8080, Dock = DockStyle.Fill };
+            
+            // Auto-save when changed
+            txtTcpIp.TextChanged += (s, e) => SaveTcpSettings();
+            nudTcpPort.ValueChanged += (s, e) => SaveTcpSettings();
+
+            btnTestTcp = new Button { Text = "TEST CONNECTION", Dock = DockStyle.Fill, BackColor = Color.LightYellow };
+            btnTestTcp.Click += (s, e) => SendTcpData("TEST_CONNECTION_FROM_APP");
+
+            tcpLayout.Controls.Add(new Label { Text = "IP Address:", TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, 0);
+            tcpLayout.Controls.Add(txtTcpIp, 1, 0);
+            tcpLayout.Controls.Add(new Label { Text = "Port:", TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, 1);
+            tcpLayout.Controls.Add(nudTcpPort, 1, 1);
+            tcpLayout.Controls.Add(btnTestTcp, 0, 2);
+            tcpLayout.SetColumnSpan(btnTestTcp, 2);
+            tcpGroup.Controls.Add(tcpLayout);
+
             GroupBox logGroup = new GroupBox { Text = "LOG", Dock = DockStyle.Fill };
             rtbLog = new RichTextBox { Dock = DockStyle.Fill, ReadOnly = true };
             logGroup.Controls.Add(rtbLog);
@@ -385,8 +418,9 @@ namespace MultiCameraBaslerApp.UI
 
             rightLayout.Controls.Add(cameraGroup, 0, 0);
             rightLayout.Controls.Add(visionMasterGroup, 0, 1);
-            rightLayout.Controls.Add(logGroup, 0, 2);
-            rightLayout.Controls.Add(btnBackToHome, 0, 3);
+            rightLayout.Controls.Add(tcpGroup, 0, 2);
+            rightLayout.Controls.Add(logGroup, 0, 3);
+            rightLayout.Controls.Add(btnBackToHome, 0, 4);
 
             rightPanel.Controls.Add(rightLayout);
 
@@ -627,6 +661,59 @@ namespace MultiCameraBaslerApp.UI
                     vmRenderControl?.Refresh();
                     
                     AppLog("VM", "==> TRIGGER THÀNH CÔNG <==", Color.Green);
+
+                    // 4. TRÍCH XUẤT KẾT QUẢ VÀ GỬI TCP (Hợp nhất CPU2 & CPU3 + Lọc trùng)
+                    List<string> allFoundCodes = new List<string>();
+                    string[] targetPaths = { 
+                        "Flow1.DL Code Reading CPU2.(CodeStr)", 
+                        "Flow1.DL Code Reading CPU3.(CodeStr)" 
+                    };
+
+                    foreach (var path in targetPaths) {
+                        try {
+                            dynamic directObj = VmSolution.Instance[path];
+                            if (directObj != null) {
+                                dynamic val = null;
+                                try { val = directObj.Value; } catch { val = directObj; }
+
+                                if (val != null) {
+                                    if (val is Array arr) {
+                                        for (int i = 0; i < arr.Length; i++) {
+                                            dynamic item = arr.GetValue(i);
+                                            try { allFoundCodes.Add(item.strValue); } catch { allFoundCodes.Add(item.ToString()); }
+                                        }
+                                    } else if (val.GetType().GetProperty("astStringVal") != null) {
+                                        for (int i = 0; i < (int)val.nNum; i++) allFoundCodes.Add(val.astStringVal[i].strValue);
+                                    } else {
+                                        allFoundCodes.Add(val.ToString());
+                                    }
+                                }
+                            }
+                        } catch { }
+                    }
+
+                    // Lọc trùng lặp (De-duplicate)
+                    allFoundCodes = allFoundCodes.Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+
+                    // Nếu chưa thấy code qua đường dẫn trực tiếp, mới dùng đến quét đệ quy dự phòng
+                    if (allFoundCodes.Count == 0) {
+                        var procInfoList = VmSolution.Instance.GetAllProcedureList();
+                        for (int i = 0; i < procInfoList.nNum; i++) {
+                            string pName = procInfoList.astProcessInfo[i].strProcessName;
+                            VmProcedure proc = VmSolution.Instance[pName] as VmProcedure;
+                            if (proc != null) ExtractResultsRecursive(proc, pName, allFoundCodes);
+                        }
+                        allFoundCodes = allFoundCodes.Distinct().ToList();
+                    }
+
+                    // Gửi dữ liệu đi
+                    string finalData = allFoundCodes.Count > 0 ? string.Join(";", allFoundCodes) : "NO_CODE";
+                    SendTcpData(finalData);
+                    
+                    if (allFoundCodes.Count > 0)
+                        AppLog("VM-RES", $"==> GỬI THÀNH CÔNG {allFoundCodes.Count} MÃ: {finalData}", Color.LimeGreen);
+                    else
+                        AppLog("VM-RES", "Không tìm thấy mã code nào.", Color.Yellow);
                 }
                 else
                 {
@@ -657,6 +744,7 @@ namespace MultiCameraBaslerApp.UI
             // Use BeginInvoke to allow UI to settle before auto-connecting
             this.BeginInvoke(new Action(() => {
                 LoadCameraSettings(); 
+                LoadTcpSettings();
             }));
             
             // Auto-load if path is valid
@@ -761,6 +849,98 @@ namespace MultiCameraBaslerApp.UI
 
             lblCamera1Info.Text = cam1 != null ? string.Format("Camera 1: {0}", cam1.DisplayName) : "Camera 1: N/A";
             lblCamera2Info.Text = cam2 != null ? string.Format("Camera 2: {0}", cam2.DisplayName) : "Camera 2: N/A";
+        }
+
+        private void ExtractResultsRecursive(object container, string path, List<string> allFoundCodes)
+        {
+            try {
+                dynamic c = container;
+                var list = c.GetAllModuleList();
+                if (list == null || list.nNum == 0) {
+                    try { list = c.GetModuleList(); } catch { }
+                }
+                if (list == null) return;
+
+                for (int i = 0; i < (int)list.nNum; i++) {
+                    string mName = list.astModuleInfo[i].strModuleName;
+                    var module = c[mName];
+                    if (module == null) continue;
+
+                    string currentPath = string.IsNullOrEmpty(path) ? mName : $"{path} > {mName}";
+                    if (mName.Contains("Code Reading") || mName.Contains("CodeRecg")) {
+                        ExtractFromModule(module, currentPath, allFoundCodes);
+                    }
+                    if (module.GetType().Name.Contains("Group")) ExtractResultsRecursive(module, currentPath, allFoundCodes);
+                }
+            } catch { }
+        }
+
+        private void ExtractFromModule(object module, string path, List<string> allFoundCodes)
+        {
+            try {
+                dynamic tool = module;
+                dynamic res = tool.ModuResult;
+                if (res == null) return;
+
+                int count = 0;
+                try { count = (int)res.CodeNum; } catch { try { count = (int)res.nCodeNum; } catch { } }
+
+                if (count > 0) {
+                    try {
+                        var val = res.CodeStr;
+                        if (val is Array arr) {
+                            for (int i = 0; i < arr.Length; i++) allFoundCodes.Add(arr.GetValue(i)?.ToString());
+                        } else {
+                            allFoundCodes.Add(val?.ToString());
+                        }
+                    } catch {
+                        try {
+                            var info = res.astCodeInfo;
+                            for (int i = 0; i < count; i++) {
+                                try { allFoundCodes.Add(info[i].strCode); } catch { }
+                            }
+                        } catch { }
+                    }
+                }
+
+                if (allFoundCodes.Count == 0) {
+                    string[] names = { "Code", "out", "CodeStr" };
+                    foreach (var n in names) {
+                        try {
+                            dynamic outS = res.GetOutputString(n);
+                            if (outS != null && (int)outS.nNum > 0) {
+                                for (int i = 0; i < (int)outS.nNum; i++) allFoundCodes.Add(outS.astStringVal[i].strValue);
+                                break;
+                            }
+                        } catch { }
+                    }
+                }
+            } catch { }
+        }
+
+        private void SendTcpData(string data)
+        {
+            string ip = "127.0.0.1";
+            int port = 8080;
+
+            if (txtTcpIp != null) this.Invoke(new Action(() => { ip = txtTcpIp.Text; port = (int)nudTcpPort.Value; }));
+
+            Task.Run(() => {
+                try {
+                    using (TcpClient client = new TcpClient()) {
+                        var connectTask = client.ConnectAsync(ip, port);
+                        if (connectTask.Wait(1000)) {
+                            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(data + "\r\n");
+                            client.GetStream().Write(bytes, 0, bytes.Length);
+                            AppLog("TCP", "Đã gửi: " + data, Color.DarkGreen);
+                        } else {
+                            AppLog("TCP-ERROR", "Không thể kết nối đến " + ip + ":" + port, Color.Red);
+                        }
+                    }
+                } catch (Exception ex) {
+                    AppLog("TCP-ERROR", "Lỗi gửi TCP: " + ex.Message, Color.Red);
+                }
+            });
         }
 
         private void ConnectSelectedCameras()
@@ -984,6 +1164,28 @@ namespace MultiCameraBaslerApp.UI
             }
         }
 
+        private void SaveTcpSettings()
+        {
+            try {
+                string path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tcp.settings.txt");
+                System.IO.File.WriteAllLines(path, new[] { txtTcpIp.Text, nudTcpPort.Value.ToString() });
+            } catch { }
+        }
+
+        private void LoadTcpSettings()
+        {
+            try {
+                string path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tcp.settings.txt");
+                if (System.IO.File.Exists(path)) {
+                    string[] lines = System.IO.File.ReadAllLines(path);
+                    if (lines.Length >= 2) {
+                        txtTcpIp.Text = lines[0];
+                        nudTcpPort.Value = decimal.Parse(lines[1]);
+                    }
+                }
+            } catch { }
+        }
+
         private void LoadVisionMasterSolution()
         {
             try
@@ -1005,7 +1207,7 @@ namespace MultiCameraBaslerApp.UI
                 if (btnShowConfig != null) btnShowConfig.Enabled = true;
                 if (btnTriggerVM != null) btnTriggerVM.Enabled = true;
                 if (btnHomeTrigger != null) btnHomeTrigger.Enabled = true;
-                ShowVisionMasterConfig();
+                // ShowVisionMasterConfig(); // Đã tắt tự động mở cửa sổ Setup
             }
             catch (Exception ex)
             {
