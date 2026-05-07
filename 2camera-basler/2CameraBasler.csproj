@@ -4,14 +4,15 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
-    <ProjectGuid>{AABBCCDD-1122-3344-5566-778899001122}</ProjectGuid>
+    <ProjectGuid>{BBCCDDEE-2233-4455-6677-889900112233}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <RootNamespace>LightControllerApp</RootNamespace>
-    <AssemblyName>LightControllerApp</AssemblyName>
+    <RootNamespace>MultiCameraBaslerApp</RootNamespace>
+    <AssemblyName>MultiCameraBaslerApp</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
     <PlatformTarget>x64</PlatformTarget>
@@ -85,46 +86,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Core\GUICamera.cs" />
-    <Compile Include="Core\Helper.cs" />
-    <Compile Include="UI\IndustrialLightApp.cs" />
-    <Compile Include="UI\Controls\SettingsPanel.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="UI\Controls\SettingsPanel.Designer.cs">
-      <DependentUpon>SettingsPanel.cs</DependentUpon>
-    </Compile>
-    <Compile Include="UI\Controls\PictureWindow.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="UI\Controls\PictureWindow.Designer.cs">
-      <DependentUpon>PictureWindow.cs</DependentUpon>
-    </Compile>
-    <Compile Include="UI\Controls\ParameterSliderUserControl.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="UI\Controls\ParameterSliderUserControl.Designer.cs">
-      <DependentUpon>ParameterSliderUserControl.cs</DependentUpon>
-    </Compile>
-    <Compile Include="UI\Controls\EnumerationComboBoxUserControl.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="UI\Controls\EnumerationComboBoxUserControl.Designer.cs">
-      <DependentUpon>EnumerationComboBoxUserControl.cs</DependentUpon>
+    <Compile Include="Core\DualCameraController.cs" />
+    <Compile Include="Core\MultiCameraManager.cs" />
+    <Compile Include="UI\CameraSelectionDialog.cs" />
+    <Compile Include="UI\DualCameraApp.cs" />
+    <Compile Include="UI\DualCameraApp.Designer.cs">
+      <DependentUpon>DualCameraApp.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="UI\Controls\SettingsPanel.resx">
-      <DependentUpon>SettingsPanel.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\Controls\PictureWindow.resx">
-      <DependentUpon>PictureWindow.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\Controls\ParameterSliderUserControl.resx">
-      <DependentUpon>ParameterSliderUserControl.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\Controls\EnumerationComboBoxUserControl.resx">
-      <DependentUpon>EnumerationComboBoxUserControl.cs</DependentUpon>
+    <EmbeddedResource Include="UI\DualCameraApp.resx">
+      <DependentUpon>DualCameraApp.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

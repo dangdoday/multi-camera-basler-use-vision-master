@@ -1,0 +1,38 @@
+.gitignore for Visual Studio and VS Code
+# Ignore Visual Studio temporary files, build outputs, and editor settings
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build folders
+**/bin/
+**/obj/
+BuildLogs/
+
+# NuGet
+packages/
+*.nupkg
+
+# VS Code
+.vscode/
+
+# Rider / IntelliJ
+.idea/
+
+# Logs and databases
+*.log
+*.db
+
+# OS generated files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Debug / release artifacts
+*.exe
+*.pdb
+
+# Ignore user-specific files
+*.userprefs

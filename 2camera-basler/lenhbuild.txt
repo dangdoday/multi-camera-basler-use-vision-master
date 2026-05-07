@@ -1,0 +1,9 @@
+dotnet build 2CameraBasler.csproj -c Debug -p:Platform=x64
+
+or build trong cmd sử dụng .NET CLI
+
+dotnet build "D:\multi-camera-basler-use-vision-master\2camera-basler\2CameraBasler.csproj" -c Debug -p:Platform=x64
+
+ Lệnh Chạy App (sau khi build xong)
+
+ Start-Process "D:\multi-camera-basler-use-vision-master\2camera-basler\bin\Debug\MultiCameraBaslerApp.exe"

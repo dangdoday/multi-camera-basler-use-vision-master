@@ -1,1 +1,0 @@
-# multi-camera-basler-use-vision-master

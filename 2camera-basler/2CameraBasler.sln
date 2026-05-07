@@ -1,0 +1,16 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "2CameraBasler", "2CameraBasler.csproj", "{BBCCDDEE-2233-4455-6677-889900112233}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BBCCDDEE-2233-4455-6677-889900112233}.Debug|x64.ActiveCfg = Debug|x64
+		{BBCCDDEE-2233-4455-6677-889900112233}.Debug|x64.Build.0 = Debug|x64
+		{BBCCDDEE-2233-4455-6677-889900112233}.Release|x64.ActiveCfg = Release|x64
+		{BBCCDDEE-2233-4455-6677-889900112233}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+EndGlobal

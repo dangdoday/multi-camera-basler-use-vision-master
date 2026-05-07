@@ -1,107 +1,98 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Linq;
+using MultiCameraBaslerApp.Core;
 
-using LightControllerApp.Core;
-namespace LightControllerApp.UI.Controls
+namespace MultiCameraBaslerApp.UI.Controls
 {
     // Image window containing a live view and counters for images, errors, and frame rate.
-    public partial class PictureWindow : UserControl
+    public partial class CameraDisplayPanel : UserControl
     {
-        // Members to calculate frame rate.
         private int FPS_AGGREGATION_TIME_S = 5;
         private int imageCountOld = 0;
         private List<int> imageCounts = new List<int>();
-
-        private GUICamera guiCamera;
+        private DualCameraController cameraController;
         private Bitmap image;
 
-        public PictureWindow()
+        public CameraDisplayPanel()
         {
             InitializeComponent();
-            // Enable double buffering of the form to avoid flickering.
             this.DoubleBuffered = true;
         }
 
-        // Sets the camera for image buffer access, image display, and frame rate display.
-        public void SetCamera(GUICamera cam)
+        public void SetCamera(DualCameraController cam)
         {
-            guiCamera = cam;
-            guiCamera.GuiCameraFrameReadyForDisplay += OnImageReady;
+            cameraController = cam;
+            if (cam != null)
+            {
+                cam.FrameReady += OnImageReady;
+            }
         }
 
-        // Clear the image. Reset the counters and corresponding labels.
         public void Clear()
         {
-            fpsLabel.Text = "";
-            ErrorsCount.Text = "";
-            ImagesCount.Text = "";
+            if (fpsLabel != null) fpsLabel.Text = "";
+            if (ErrorsCount != null) ErrorsCount.Text = "";
+            if (ImagesCount != null) ImagesCount.Text = "";
             imageCountOld = 0;
             imageCounts.Clear();
-            if (this.image != null)
+            if (image != null)
             {
                 image.Dispose();
             }
-            this.image = null;
-            // Make sure the image window is updated.
+            image = null;
             Invalidate();
         }
 
-        // Set the counters to 0.
         public void InitCounters()
         {
             imageCountOld = 0;
             imageCounts.Clear();
-            ImagesCount.Text = "Images: 0";
-            ErrorsCount.Text = "Errors: 0";
-            fpsLabel.Text = "Frame rate: 0.0";
+            if (ImagesCount != null) ImagesCount.Text = "Images: 0";
+            if (ErrorsCount != null) ErrorsCount.Text = "Errors: 0";
+            if (fpsLabel != null) fpsLabel.Text = "Frame rate: 0.0";
         }
 
-        // Starts the frame rate counter if a camera is opened.
         public void StartFpsCounter()
         {
             InitCounters();
-            fpsTimer.Start();
+            if (fpsTimer != null)
+                fpsTimer.Start();
         }
 
-        // Stops the frame rate counter thread if the camera is closed.
         public void StopFpsCounter()
         {
-            fpsTimer.Stop();
+            if (fpsTimer != null)
+                fpsTimer.Stop();
         }
 
-        // Calculates the frame rate every second.
         private void FpsTimerTick(object sender, EventArgs e)
         {
-            int imageCount = guiCamera.ImageCount;
-            int errorCount = guiCamera.ErrorCount;
+            if (cameraController == null)
+                return;
+
+            int imageCount = cameraController.ImageCount;
+            int errorCount = cameraController.ErrorCount;
 
             double fpsApproximation = 0.0;
-            if (guiCamera.IsGrabbing)
+            if (cameraController.IsGrabbing)
             {
-                // If previous values are available, e.g., for continuous grab, ...
                 if (imageCounts.Count > 0)
                 {
                     int imageCountCurrent = imageCount - imageCountOld;
                     imageCounts.Add(imageCountCurrent);
-                    // Count for about x seconds. Remove older values.
                     while (imageCounts.Count > FPS_AGGREGATION_TIME_S)
                     {
                         imageCounts.RemoveAt(0);
                     }
-
-                    //... sum up all values and calculate the average for the 1 s FpsTickTimer duration.
                     int sum = imageCounts.Sum();
                     fpsApproximation = (double)sum / (double)imageCounts.Count;
                 }
                 else
                 {
                     int imageCountCurrent = imageCount - imageCountOld;
-                    // First count of images for 1 second timer.
-                    // The timer is not synchronized with the grabbing, so we start aggregating values with
-                    // the second tick of the timer where we get the first images.
                     if (imageCountOld != 0)
                     {
                         imageCounts.Add(imageCountCurrent);
@@ -110,31 +101,29 @@ namespace LightControllerApp.UI.Controls
                 }
             }
 
-            // Update the GUI.
-            fpsLabel.Text = String.Format("Frame rate: {0:0.0}", fpsApproximation);
-            ImagesCount.Text = "Images: " + imageCount;
-            ErrorsCount.Text = "Errors: " + errorCount;
-            // Remember the last image count for the next processing tick.
+            if (fpsLabel != null) fpsLabel.Text = String.Format("Frame rate: {0:0.0}", fpsApproximation);
+            if (ImagesCount != null) ImagesCount.Text = "Images: " + imageCount;
+            if (ErrorsCount != null) ErrorsCount.Text = "Errors: " + errorCount;
             imageCountOld = imageCount;
         }
 
-        // Renders the image every time the image window is invalidated.
         protected override void OnPaint(PaintEventArgs e)
         {
             if (image != null)
             {
                 double aspectRatioImage = (double)(image.Width) / (double)(image.Height);
                 int availableDisplayWidth = this.Width;
-                int availableDisplayHeight = this.Height - streamDataBox.Height - streamDataBox.Margin.Top - streamDataBox.Margin.Bottom;
+                int availableDisplayHeight = this.Height - 50; // Reserve space for labels
                 int requiredDisplayHeight = (int)((double)(this.Width) / aspectRatioImage);
                 int drawingAreaWidth = availableDisplayWidth;
                 int drawingAreaHeight = requiredDisplayHeight;
-                // If height is exceeded, correct the width and height.
+
                 if (availableDisplayHeight < requiredDisplayHeight)
                 {
                     drawingAreaWidth = (int)(availableDisplayHeight * aspectRatioImage);
                     drawingAreaHeight = availableDisplayHeight;
                 }
+
                 Point drawingPosition = new Point(0, 0);
                 Size drawingSize = new Size(drawingAreaWidth, drawingAreaHeight);
                 Rectangle drawingArea = new Rectangle(drawingPosition, drawingSize);
@@ -146,20 +135,17 @@ namespace LightControllerApp.UI.Controls
             }
         }
 
-        // Invalidate the image window every time the GuiCamera has supplied a new image.
-        // This causes a repaint of the image.
         private void OnImageReady(Object sender, EventArgs e)
         {
             if (InvokeRequired)
             {
-                // If called from a different thread, we must use the Invoke method to marshal the call to the proper thread.
                 BeginInvoke(new EventHandler<EventArgs>(OnImageReady), sender, e);
                 return;
             }
 
-            if (guiCamera != null)
+            if (cameraController != null)
             {
-                Bitmap newImage = guiCamera.GetLatestFrame();
+                Bitmap newImage = cameraController.GetLatestFrame();
                 if (newImage != null)
                 {
                     if (image != null)
@@ -170,13 +156,11 @@ namespace LightControllerApp.UI.Controls
                 }
             }
 
-            // Tell Windows to repaint the control.
             this.Invalidate();
             this.Update();
         }
 
-        // Invalidate the form on resize to scale the image.
-        private void PictureWindowResize(object sender, EventArgs e)
+        private void CameraDisplayPanelResize(object sender, EventArgs e)
         {
             this.Invalidate();
         }

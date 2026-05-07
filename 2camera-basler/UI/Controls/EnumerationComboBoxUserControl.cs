@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 using System.Windows.Forms;
 using Basler.Pylon;
 
-namespace LightControllerApp.UI.Controls
+namespace MultiCameraBaslerApp.UI.Controls
 {
     public partial class EnumerationComboBoxUserControl : UserControl
     {
@@ -186,4 +186,3 @@ namespace LightControllerApp.UI.Controls
         }
     }
 }
-
