@@ -653,7 +653,11 @@ namespace MultiCameraBaslerApp.UI
         {
             RefreshCameraList();
             LoadRememberedVisionMasterPathOnly();
-            LoadCameraSettings(); // Auto-load and connect cameras
+            
+            // Use BeginInvoke to allow UI to settle before auto-connecting
+            this.BeginInvoke(new Action(() => {
+                LoadCameraSettings(); 
+            }));
             
             // Auto-load if path is valid
             string solPath = txtVisionMasterPath.Text.Trim();
@@ -955,16 +959,22 @@ namespace MultiCameraBaslerApp.UI
                 // If both matched, connect
                 if (found1 && found2)
                 {
-                    AppLog("SYS", "Đang tự động kết nối camera đã lưu...", Color.Blue);
+                    AppLog("SYS", string.Format("Đang tự động kết nối: {0} & {1}", sn1, sn2), Color.Blue);
                     ConnectSelectedCameras();
                     
-                    // Set exposures (this will trigger ApplyExposure and SaveCameraSettings)
+                    // Set exposures
                     nudExposure1.Value = (decimal)Math.Max(nudExposure1.Minimum, Math.Min(nudExposure1.Maximum, (decimal)exp1));
                     nudExposure2.Value = (decimal)Math.Max(nudExposure2.Minimum, Math.Min(nudExposure2.Maximum, (decimal)exp2));
                     
-                    // Force apply in case nud value didn't change (so event didn't fire)
                     ApplyExposure(0, nudExposure1);
                     ApplyExposure(1, nudExposure2);
+                }
+                else
+                {
+                    if (!string.IsNullOrEmpty(sn1) || !string.IsNullOrEmpty(sn2))
+                    {
+                        AppLog("SYS", "Không tìm thấy đủ 2 camera đã lưu trong danh sách thiết bị.", Color.Orange);
+                    }
                 }
             }
             catch (Exception ex)
