@@ -653,6 +653,7 @@ namespace MultiCameraBaslerApp.UI
         {
             RefreshCameraList();
             LoadRememberedVisionMasterPathOnly();
+            LoadCameraSettings(); // Auto-load and connect cameras
             
             // Auto-load if path is valid
             string solPath = txtVisionMasterPath.Text.Trim();
@@ -786,6 +787,7 @@ namespace MultiCameraBaslerApp.UI
                     liveEnabled = false;
                     UpdateLiveUi(false);
                     AppLog("UI", "Đã kết nối và mở 2 camera", Color.Green);
+                    SaveCameraSettings(); // Save these cameras as preferred
                 }
                 else
                 {
@@ -868,6 +870,107 @@ namespace MultiCameraBaslerApp.UI
             catch (Exception ex)
             {
                 AppLog("ERROR", "Load remembered VisionMaster failed: " + ex.Message, Color.Red);
+            }
+        }
+
+        private string GetCameraSettingsFilePath()
+        {
+            return System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "camera.settings.txt");
+        }
+
+        private void SaveCameraSettings()
+        {
+            try
+            {
+                CameraOption cam1 = cboCamera1.SelectedItem as CameraOption;
+                CameraOption cam2 = cboCamera2.SelectedItem as CameraOption;
+                
+                List<string> lines = new List<string>();
+                if (cam1 != null) lines.Add("Camera1SN=" + cam1.SerialNumber);
+                if (cam2 != null) lines.Add("Camera2SN=" + cam2.SerialNumber);
+                lines.Add("Camera1Exp=" + nudExposure1.Value);
+                lines.Add("Camera2Exp=" + nudExposure2.Value);
+
+                System.IO.File.WriteAllLines(GetCameraSettingsFilePath(), lines);
+            }
+            catch { }
+        }
+
+        private void LoadCameraSettings()
+        {
+            try
+            {
+                string path = GetCameraSettingsFilePath();
+                if (!System.IO.File.Exists(path)) return;
+
+                string[] lines = System.IO.File.ReadAllLines(path);
+                string sn1 = "", sn2 = "";
+                double exp1 = 10000, exp2 = 10000;
+
+                foreach (string line in lines)
+                {
+                    string[] parts = line.Split('=');
+                    if (parts.Length != 2) continue;
+                    string key = parts[0].Trim();
+                    string val = parts[1].Trim();
+
+                    if (key == "Camera1SN") sn1 = val;
+                    else if (key == "Camera2SN") sn2 = val;
+                    else if (key == "Camera1Exp") double.TryParse(val, out exp1);
+                    else if (key == "Camera2Exp") double.TryParse(val, out exp2);
+                }
+
+                suppressSelectionEvents = true; // Avoid double triggering
+                
+                // Match in ComboBoxes
+                bool found1 = false, found2 = false;
+                if (!string.IsNullOrEmpty(sn1))
+                {
+                    for (int i = 0; i < cboCamera1.Items.Count; i++)
+                    {
+                        if (((CameraOption)cboCamera1.Items[i]).SerialNumber == sn1)
+                        {
+                            cboCamera1.SelectedIndex = i;
+                            found1 = true;
+                            break;
+                        }
+                    }
+                }
+                if (!string.IsNullOrEmpty(sn2))
+                {
+                    for (int i = 0; i < cboCamera2.Items.Count; i++)
+                    {
+                        if (((CameraOption)cboCamera2.Items[i]).SerialNumber == sn2)
+                        {
+                            cboCamera2.SelectedIndex = i;
+                            found2 = true;
+                            break;
+                        }
+                    }
+                }
+                
+                suppressSelectionEvents = false;
+                UpdateSelectionLabels();
+
+                // If both matched, connect
+                if (found1 && found2)
+                {
+                    AppLog("SYS", "Đang tự động kết nối camera đã lưu...", Color.Blue);
+                    ConnectSelectedCameras();
+                    
+                    // Set exposures (this will trigger ApplyExposure and SaveCameraSettings)
+                    nudExposure1.Value = (decimal)Math.Max(nudExposure1.Minimum, Math.Min(nudExposure1.Maximum, (decimal)exp1));
+                    nudExposure2.Value = (decimal)Math.Max(nudExposure2.Minimum, Math.Min(nudExposure2.Maximum, (decimal)exp2));
+                    
+                    // Force apply in case nud value didn't change (so event didn't fire)
+                    ApplyExposure(0, nudExposure1);
+                    ApplyExposure(1, nudExposure2);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLog("ERROR", "Tự động load cấu hình camera thất bại: " + ex.Message, Color.Red);
+                suppressSelectionEvents = false;
             }
         }
 
@@ -988,6 +1091,7 @@ namespace MultiCameraBaslerApp.UI
                 if (cameraManager.SetExposureTimeForCamera(cameraIndex, exposure))
                 {
                     AppLog("CAM", string.Format("Camera {0} exposure set to {1} us", cameraIndex + 1, exposure), Color.DarkCyan);
+                    SaveCameraSettings(); // Save the latest exposure
                 }
                 else
                 {
